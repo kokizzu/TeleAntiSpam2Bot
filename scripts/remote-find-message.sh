@@ -44,8 +44,10 @@ for chat_id, users in (data.get("chats") or {}).items():
                 "last_message_at": (history or {}).get("last_message_at"),
                 "recent_message_ids": recent,
             })
-print(json.dumps({"message_id": message_id, "matches": matches}, indent=2))
-if len(matches) != 1:
+actions = [action for action in data.get("moderation_actions", [])
+           if action.get("message_id") == message_id or message_id in (action.get("deleted_message_ids") or [])]
+print(json.dumps({"message_id": message_id, "matches": matches, "moderation_actions": actions}, indent=2))
+if len(matches) != 1 and not actions:
     raise SystemExit(2)
 PY
 
