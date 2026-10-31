@@ -24,12 +24,12 @@ for line in logs.splitlines():
         if 'https://' not in line and ('user=' in line or '72783' in line): print(line)
 data=json.loads(Path('/var/lib/teleantispam/state.json').read_text())
 users=(data.get('chats') or {}).get('-1001116539442',{})
-recent=sorted(users.items(),key=lambda kv:(kv[1].get('last_message_at') or kv[1].get('joined_at') or ''),reverse=True)[:30]
+recent=[(uid,h) for uid,h in users.items() if any(mid >= 72770 for mid in h.get('recent_message_ids',[]))]
 for uid,history in recent:
     response=api('getChatMember',chat_id=-1001116539442,user_id=uid)
     member=response.get('result') or {}
     user=member.get('user') or {}
-    if any(s in json.dumps(user).casefold() for s in ['aryan','olivia']):
+    if any(s in json.dumps(user).casefold() for s in ['aryan','olivia']) or any(mid in history.get('recent_message_ids',[]) for mid in [72782,72786,72788]):
         print(json.dumps({'recent_member':member,'history':history}))
 for a in data.get('moderation_actions',[]):
     if any(term in json.dumps(a).casefold() for term in ['olivia','aryan','72783','gchatf0']): print(json.dumps(a))
