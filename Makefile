@@ -95,3 +95,9 @@ apply-reported-cleanup:
 
 unstage-isolated-release:
 	python3 scripts/isolated_release.py unstage
+
+plan-reported-message-deletion:
+	bash scripts/remote-reported-cleanup.sh delete-plan
+
+apply-reported-message-deletion:
+	bash scripts/remote-reported-cleanup.sh delete-apply

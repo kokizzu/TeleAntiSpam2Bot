@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source scripts/load-local-env.sh
-ssh -x -o BatchMode=yes -o ConnectTimeout=15 "${TELEANTISPAM_DEPLOY_HOST:?}" python3 - "${1:?plan or apply}" <<'PY'
+message_id=0
+if [[ "${1:-}" == delete-* ]]; then
+  message_id="$(tr -d '[:space:]' < tmp/telegram-message-id.txt)"
+  [[ "$message_id" =~ ^[1-9][0-9]*$ ]] || exit 1
+fi
+ssh -x -o BatchMode=yes -o ConnectTimeout=15 "${TELEANTISPAM_DEPLOY_HOST:?}" python3 - "${1:?plan or apply}" "$message_id" <<'PY'
 import json, sys, urllib.request, urllib.parse, urllib.error
 from pathlib import Path
 mode=sys.argv[1]
@@ -29,6 +34,25 @@ assert chat['id']==-1001116539442 and user['id']==8151342514
 self=required('getMe')
 permissions=required('getChatMember',chat_id=chat['id'],user_id=self['id'])
 assert permissions['status']=='administrator' and permissions.get('can_delete_messages') and permissions.get('can_restrict_members')
+if mode in ('delete-plan','delete-apply'):
+    mid=int(sys.argv[2])
+    assert mid > 0
+    target={'chat_id':chat['id'],'delete_message_ids':[mid]}
+    plan=Path(f'/var/lib/teleantispam/reported-delete-{mid}-plan.json')
+    receipt=Path(f'/var/lib/teleantispam/reported-delete-{mid}-result.json')
+    if mode=='delete-plan':
+        value={'target':target,'effects':['delete only the exact reviewed message ID'],'rollback':'Deleted Telegram messages cannot be restored.'}
+        plan.write_text(json.dumps(value,indent=2)+'\n')
+    else:
+        assert json.loads(plan.read_text())['target']==target, 'reviewed plan changed'
+        response=api('deleteMessage',chat_id=chat['id'],message_id=mid)
+        value={'target':target,'response':response}
+        receipt.write_text(json.dumps(value,indent=2)+'\n')
+        print(json.dumps(value,indent=2))
+        assert response.get('ok') and response.get('result') is True, 'deletion failed'
+        raise SystemExit(0)
+    print(json.dumps(value,indent=2))
+    raise SystemExit(0)
 member=required('getChatMember',chat_id=chat['id'],user_id=user['id'])
 assert member['status'] not in ('administrator','creator')
 aryan=required('getChatMember',chat_id=chat['id'],user_id=7842537651)
