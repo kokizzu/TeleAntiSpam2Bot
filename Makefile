@@ -71,3 +71,27 @@ plan-release:
 
 apply-release:
 	python3 scripts/release_changes.py apply
+
+plan-isolated-release:
+	python3 scripts/isolated_release.py plan
+
+publish-isolated-release:
+	python3 scripts/isolated_release.py publish
+
+deploy-isolated-release:
+	python3 scripts/isolated_release.py deploy
+
+investigate-reported-spam:
+	bash scripts/investigate-reported-spam.sh
+
+sync-primary:
+	python3 scripts/isolated_release.py sync
+
+plan-reported-cleanup:
+	bash scripts/remote-reported-cleanup.sh plan
+
+apply-reported-cleanup:
+	bash scripts/remote-reported-cleanup.sh apply
+
+unstage-isolated-release:
+	python3 scripts/isolated_release.py unstage

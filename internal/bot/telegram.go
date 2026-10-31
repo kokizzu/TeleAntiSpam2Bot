@@ -263,7 +263,7 @@ func HandleTelegramMessage(cfg Config, store *FileStore, client TelegramClient, 
 		}
 	}
 
-	if message.From == nil || message.From.IsBot {
+	if message.From == nil || len(message.NewChatMembers) > 0 {
 		return nil
 	}
 
@@ -271,16 +271,21 @@ func HandleTelegramMessage(cfg Config, store *FileStore, client TelegramClient, 
 	if text == "" {
 		text = message.Caption
 	}
+	hasButtons := message.ReplyMarkup != nil && len(message.ReplyMarkup.InlineKeyboard) > 0
+	if message.From.IsBot && !hasButtons && !bettingPromotionSpam(text) {
+		return nil
+	}
 
 	userID := message.From.ID
 	history := store.History(chatID, userID)
 	decision := EvaluateMessage(cfg, history, MessageEvent{
-		ChatID:    chatID,
-		UserID:    userID,
-		MessageID: message.MessageID,
-		Text:      text,
-		At:        messageTime,
-		Now:       now,
+		ChatID:           chatID,
+		UserID:           userID,
+		MessageID:        message.MessageID,
+		Text:             text,
+		HasInlineButtons: hasButtons,
+		At:               messageTime,
+		Now:              now,
 
 		ForwardedFromChat:         forward.ForwardedFromChat,
 		ForwardedFromChatTitle:    forward.ForwardedFromChatTitle,

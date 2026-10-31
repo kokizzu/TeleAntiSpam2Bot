@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
+import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -52,13 +55,17 @@ class ManualModerationWorkflowTest(unittest.TestCase):
         self.assertEqual(MANUAL.sha256(left), MANUAL.sha256(right))
 
     def test_release_request_uses_direct_master_and_explicit_paths(self):
-        request = RELEASE.load_request()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "request.json"
+            path.write_text(json.dumps({"branch": "master", "message": "Test release", "paths": ["README.md"]}))
+            with patch.object(RELEASE, "REQUEST", path):
+                request = RELEASE.load_request()
         self.assertEqual("master", request["branch"])
         self.assertEqual(len(request["paths"]), len(set(request["paths"])))
         self.assertTrue(all(not path.startswith("tmp/") for path in request["paths"]))
 
     def test_shell_wrappers_parse(self):
-        for name in ("inspect-worktree.sh", "remote-find-message.sh", "remote-manual-moderate.sh", "remote-status.sh"):
+        for name in ("inspect-worktree.sh", "remote-find-message.sh", "remote-manual-moderate.sh", "remote-status.sh", "remote-reported-cleanup.sh", "investigate-reported-spam.sh"):
             result = subprocess.run(
                 ["bash", "-n", str(PROJECT / "scripts" / name)],
                 check=False,

@@ -17,6 +17,20 @@ invite. This avoids treating an old group member as
 no-history path can be enabled with `TELEANTISPAM_ALLOW_UNKNOWN_NO_HISTORY=true`
 after accepting that tradeoff.
 
+Additional rules detect betting promotions with a registration/reward pitch and
+external contact, actual inline keyboard buttons, and a first content message
+less than one second after an observed join. Telegram supplies whole-second
+timestamps, so the last rule detects same-second join/post events. Join service
+messages do not count as content posts. These rules retain the administrator,
+message-age, and established-member protections. Inline bot results are attributed
+to the posting user, rather than banning an account mentioned in the text.
+
+Telegram normally hides other bots' messages from moderation bots. To receive
+them, enable Bot-to-Bot Communication Mode for this bot in BotFather; it already
+needs group administrator rights. See Telegram's
+[bot-to-bot documentation](https://core.telegram.org/bots/features#bot-to-bot-communication).
+Rules cannot inspect updates Telegram does not deliver.
+
 The intended moderation action mirrors the manual Telegram flow:
 
 - Delete the spammer's recent tracked messages.

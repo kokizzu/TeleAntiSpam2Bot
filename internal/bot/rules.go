@@ -17,14 +17,18 @@ var forwardedFinanceTermPattern = regexp.MustCompile(`(?i)\b(airdrop|bitcoin|btc
 var forwardedFinancePitchPattern = regexp.MustCompile(`(?i)(\bt\.me/[a-z0-9_]+|\btelegram\.me/[a-z0-9_]+|@[a-z0-9_]{4,}|\b(channel|earned?|earning|group|income|invest(?:ing|ment)?|join|mentor(ship)?|profit|pump|signal|subscribe|trading|usdt|vip|wallet)\b)`)
 var financeCommercialTermPattern = regexp.MustCompile(`(?i)\b(finance|financial|forex|income|invest(?:ing|ment)?|market|profit|stock|trading|wealth)\b`)
 var privateTelegramInvitePattern = regexp.MustCompile(`(?i)(?:^|[\s(])(?:https?://)?(?:t\.me|telegram\.me)/(?:\+[a-z0-9_-]+|joinchat/[a-z0-9_-]+)\b`)
+var bettingTermPattern = regexp.MustCompile(`(?i)\b(parimatch|betting|casino|gambling|sportsbook)\b`)
+var bettingPitchPattern = regexp.MustCompile(`(?i)\b(register|sign up|claim|bonus|withdrawals?|rewards?|cash prizes?|welcome bonus)\b`)
+var promotionContactPattern = regexp.MustCompile(`(?i)(https?://|@[a-z0-9_]{4,}|\b[a-z0-9-]+\.(com|net|org|ltd|bet|io)\b)`)
 
 type MessageEvent struct {
-	ChatID    int64
-	UserID    int64
-	MessageID int
-	Text      string
-	At        time.Time
-	Now       time.Time
+	ChatID           int64
+	UserID           int64
+	MessageID        int
+	Text             string
+	HasInlineButtons bool
+	At               time.Time
+	Now              time.Time
 
 	ForwardedFromChat         bool
 	ForwardedFromChatTitle    string
@@ -54,6 +58,11 @@ func EvaluateMessage(cfg Config, history HistoryView, event MessageEvent) Modera
 	}
 
 	reason := suspiciousReason(event)
+	if reason == "" && history.MessageCount == 0 && !history.JoinedAt.IsZero() &&
+		!event.At.Before(history.JoinedAt) && event.At.Sub(history.JoinedAt) < time.Second &&
+		(strings.TrimSpace(event.Text) != "" || event.HasInlineButtons) {
+		reason = "immediate-join-post"
+	}
 	if reason == "" {
 		return ModerationDecision{}
 	}
@@ -92,6 +101,12 @@ func eligibleLowHistory(cfg Config, history HistoryView, event MessageEvent, rea
 }
 
 func highConfidenceUnknownNoHistorySpam(reason string, event MessageEvent) bool {
+	if reason == "inline-buttons" {
+		return event.HasInlineButtons
+	}
+	if reason == "betting-promotion" {
+		return bettingPromotionSpam(event.Text)
+	}
 	normalized := strings.TrimSpace(strings.ToLower(event.Text))
 	if normalized == "" {
 		return reason == "forwarded-finance-group" && forwardedFinanceGroupSpam(event)
@@ -119,6 +134,12 @@ func highConfidenceUnknownNoHistorySpam(reason string, event MessageEvent) bool 
 }
 
 func suspiciousReason(event MessageEvent) string {
+	if bettingPromotionSpam(event.Text) {
+		return "betting-promotion"
+	}
+	if event.HasInlineButtons {
+		return "inline-buttons"
+	}
 	if forwardedFinanceGroupSpam(event) {
 		return "forwarded-finance-group"
 	}
@@ -143,6 +164,10 @@ func suspiciousReason(event MessageEvent) string {
 		return "cyrillic-heavy"
 	}
 	return ""
+}
+
+func bettingPromotionSpam(text string) bool {
+	return bettingTermPattern.MatchString(text) && bettingPitchPattern.MatchString(text) && promotionContactPattern.MatchString(text)
 }
 
 func financePrivateInviteSpam(text string) bool {
